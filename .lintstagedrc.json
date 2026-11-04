@@ -1,0 +1,4 @@
+{
+  "*.{json,md,yml,yaml}": "prettier --write",
+  "api/**/*.ts": "prettier --write"
+}
