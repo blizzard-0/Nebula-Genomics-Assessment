@@ -1,6 +1,6 @@
 # Nebula-Genomics-Assessment
 
-A kit lifecycle dashboard for the Nebula take-home. It answers the questions from the brief: how the pipeline is doing, how long each stage takes per product, which kits are stuck and who should chase them, and what happened to a specific order. You can also upload your own pair of CSVs.
+A kit lifecycle dashboard for the Nebula take-home. It answers the questions from the brief: how the pipeline is doing, how long each stage takes per product, which kits are stuck and who should chase them, and what happened to a specific order. You can also upload your own pairs of CSVs and switch between them.
 
 Live: _URL to be added after deployment_
 
@@ -23,15 +23,21 @@ The files need the same columns as the challenge. Column order and extra columns
 
 If a file can't be used at all (a missing column, an empty file, something that isn't a CSV, two orders files, or files that are too big), you get an error that says what's wrong, and the current data stays loaded. Bad rows inside an otherwise valid file are dropped or fixed. Everything I changed is listed in the data quality report on the same page, with counts and example ids. That's the place to check whether the things you broke on purpose were caught.
 
-Refreshing the page takes you back to the sample, because uploads aren't stored anywhere.
-
 To generate a fresh dataset: `node backend/scripts/generate-sample-data.mjs 42 ./seed-42`
+
+### Saved datasets
+
+Every upload is saved in your browser and gets its own entry next to the sample. You can switch between them from the dataset picker at the top of every page, and the app reopens whatever you had open last. On the Data page you can rename a dataset, change its as-of date (it gets re-analyzed), or remove it (with a few seconds to undo). The sample is always there and can't be removed. If you upload the exact same files again, the saved copy opens instead of a duplicate.
+
+You always know which data you're looking at: each dataset has its own color, the open one is shown in the header and in a "Viewing" bar at the top of every page, and the browser tab title includes its name. Anything that takes a moment (changing page or filters, switching datasets, uploading, exporting) shows a progress bar at the top of the window.
+
+Nothing goes to a database. The files and the analyzed result live in the browser's IndexedDB, so other people and other browsers don't see your uploads. I didn't use localStorage because it's capped at about 5 MB, which is less than two datasets. If the browser can't save (storage is blocked or full), the upload still opens and is kept until you refresh, and the app tells you so.
 
 ## How it works
 
 It's two workspaces: `backend` (Express and TypeScript) and `frontend` (Vue 3, TypeScript and Tailwind). There's no database.
 
-The backend does the heavy lifting in `backend/src/domain`. It parses both CSVs, converts timestamps to UTC and cleans up the data. Then it rebuilds each kit's history, including replacements, works out stage durations and who's stuck, and returns one JSON dataset. The frontend keeps that dataset in memory and does the filtering and charts in the browser, so filters are instant and nothing has to be stored on the server.
+The backend does the heavy lifting in `backend/src/domain`. It parses both CSVs, converts timestamps to UTC and cleans up the data. Then it rebuilds each kit's history, including replacements, works out stage durations and who's stuck, and returns one JSON dataset. The frontend keeps that dataset in memory and does the filtering and charts in the browser, so filters are instant and nothing has to be stored on the server. Uploaded datasets are saved in the browser with their original files. If I change the analysis rules later, the health endpoint reports a new engine version and saved datasets are re-analyzed from their files the next time they open.
 
 ```
 api/index.ts           Vercel entry, just re-exports the Express app
@@ -39,7 +45,8 @@ backend/src/domain/    csv → time → clean → lifecycle → quality → buil
 backend/src/routes/    /api/health, /api/datasets/sample, /api/datasets/analyze
 backend/test/          unit, API and robustness tests
 frontend/src/views/    Overview, Turnaround, Stuck, Order, Data
-frontend/src/lib/      filters and metrics (plain functions, tested)
+frontend/src/lib/      filters, metrics and saved datasets (plain functions, tested)
+frontend/src/stores/   the open dataset and the saved list
 ```
 
 ## Data decisions
@@ -69,12 +76,12 @@ I added two rules of my own. A failed QC with no replacement after 3 days is stu
 
 ## Deploying
 
-It's set up for Vercel: import the repo, keep the defaults and deploy. `vercel.json` builds the frontend as static files and sends `/api/*` to the Express app in `api/index.ts`. You don't need any environment variables. After deploying, `/api/health` should return `{"status":"ok"}`.
+It's set up for Vercel: import the repo, keep the defaults and deploy. `vercel.json` builds the frontend as static files and sends `/api/*` to the Express app in `api/index.ts`. You don't need any environment variables. After deploying, `/api/health` should return `{"status":"ok", ...}`.
 
 ## What I'd do next
 
 - Check my assumptions with the ops team: the 3-day rules, who owns a failed QC, and timestamps without a time zone.
 - Add trends, like weekly medians per stage, so slowdowns show up early.
 - Let people assign, comment on and snooze stuck orders. That needs a database.
-- Keep uploads around (stored by file hash) so they survive a refresh and can be shared.
+- Share saved datasets between people. Right now they only live in one browser, so sharing would need server-side storage.
 - If the data grows a lot, move the aggregation to the server instead of sending everything to the browser.

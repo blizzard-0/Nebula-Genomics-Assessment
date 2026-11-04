@@ -2,6 +2,7 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app.js';
 import type { ApiError, Dataset } from '../src/contracts.js';
+import { ENGINE_VERSION } from '../src/contracts.js';
 import { eventsCsv, ordersCsv } from './helpers.js';
 
 const app = createApp();
@@ -18,7 +19,7 @@ describe('API', () => {
   it('GET /api/health', async () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok' });
+    expect(res.body).toEqual({ status: 'ok', engineVersion: ENGINE_VERSION });
   });
 
   it('GET /api/datasets/sample returns the cached sample dataset', async () => {

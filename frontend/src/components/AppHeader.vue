@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import DatasetPicker from '@/components/DatasetPicker.vue';
 import GlobalSearch from '@/components/GlobalSearch.vue';
 import { useFilters } from '@/composables/useFilters';
-import { fmtDate } from '@/lib/format';
 import { useDatasetStore } from '@/stores/dataset';
 
 const store = useDatasetStore();
@@ -36,8 +36,8 @@ const asOfTitle = computed(() => {
   if (!meta) return '';
   const how = {
     export_date: 'export date stated with the sample',
-    latest_timestamp: 'latest timestamp in the uploaded files',
-    override: 'set when the files were uploaded',
+    latest_timestamp: 'latest timestamp in the files',
+    override: 'set by you for this dataset',
   }[meta.asOfSource];
   return `Days waiting are measured to this instant (${how}).`;
 });
@@ -65,21 +65,9 @@ const asOfTitle = computed(() => {
         <span class="text-[0.95rem] leading-tight font-semibold">Kit Lifecycle</span>
       </RouterLink>
 
-      <div class="order-3 flex w-full items-center gap-3 sm:order-0 sm:ml-auto sm:w-auto">
-        <GlobalSearch class="min-w-0 flex-1 sm:w-72 sm:flex-none" />
-        <p
-          v-if="store.dataset"
-          class="hidden shrink-0 text-xs text-muted md:block"
-          :title="asOfTitle"
-        >
-          As of <span class="font-medium text-ink">{{ fmtDate(store.dataset.meta.asOf) }}</span>
-          <span
-            v-if="!store.isSample"
-            class="ml-1 rounded bg-accent-soft px-1.5 py-0.5 text-accent"
-          >
-            uploaded
-          </span>
-        </p>
+      <div class="order-3 flex w-full items-center gap-2 sm:order-0 sm:ml-auto sm:w-auto sm:gap-3">
+        <GlobalSearch class="min-w-0 flex-1 sm:w-64 sm:flex-none" />
+        <DatasetPicker class="max-w-[48%] shrink-0 sm:max-w-64" :title="asOfTitle" />
       </div>
 
       <nav

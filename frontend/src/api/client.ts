@@ -1,4 +1,5 @@
-import type { ApiError as ApiErrorBody, Dataset } from '@contracts';
+import type { ApiError as ApiErrorBody, Dataset, HealthResponse } from '@contracts';
+import { track } from '@/lib/loading';
 
 export class ApiError extends Error {
   constructor(
@@ -37,15 +38,20 @@ async function handle<T>(res: Response): Promise<T> {
   );
 }
 
+export async function fetchHealth(): Promise<HealthResponse> {
+  const res = await fetch('/api/health', { cache: 'no-store' });
+  return handle<HealthResponse>(res);
+}
+
 export async function fetchSampleDataset(signal?: AbortSignal): Promise<Dataset> {
-  const res = await fetch('/api/datasets/sample', { signal });
-  return handle<Dataset>(res);
+  return track(async () => handle<Dataset>(await fetch('/api/datasets/sample', { signal })));
 }
 
 export async function analyzeFiles(files: File[], asOf?: string): Promise<Dataset> {
   const form = new FormData();
   files.forEach((file, i) => form.append(`file${i + 1}`, file, file.name));
   if (asOf) form.append('asOf', asOf);
-  const res = await fetch('/api/datasets/analyze', { method: 'POST', body: form });
-  return handle<Dataset>(res);
+  return track(async () =>
+    handle<Dataset>(await fetch('/api/datasets/analyze', { method: 'POST', body: form })),
+  );
 }

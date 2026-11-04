@@ -1,4 +1,5 @@
 import type { Dataset, DatasetMeta, EventTuple } from '../contracts.js';
+import { ENGINE_VERSION } from '../contracts.js';
 import { HttpError } from '../middleware/errors.js';
 import { cleanOrders, dedupeEvents, linkEvents, logTimestampKinds, parseEvents } from './clean.js';
 import type { CsvKind, CsvTable } from './csv.js';
@@ -99,6 +100,7 @@ export function buildDataset(
   return {
     meta: {
       source: options.source,
+      engineVersion: ENGINE_VERSION,
       label: options.label,
       asOf,
       asOfSource,

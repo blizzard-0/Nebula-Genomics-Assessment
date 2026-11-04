@@ -98,6 +98,7 @@ export function makeDataset(orders: OrderDto[], kits: KitDto[]): Dataset {
   return {
     meta: {
       source: 'sample',
+      engineVersion: '2',
       label: 'test',
       asOf: AS_OF,
       asOfSource: 'export_date',

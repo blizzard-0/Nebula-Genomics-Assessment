@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { useDropZone } from '@vueuse/core';
-import { FileText, UploadCloud, X } from 'lucide-vue-next';
+import { FileText, LoaderCircle, UploadCloud, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import { ApiError } from '@/api/client';
 import { fmtInt } from '@/lib/format';
+import type { UploadResult } from '@/stores/dataset';
 import { useDatasetStore } from '@/stores/dataset';
 
 const store = useDatasetStore();
@@ -14,6 +15,7 @@ const error = ref<{ message: string; hint?: string } | null>(null);
 const success = ref<string | null>(null);
 const dropRef = ref<HTMLElement | null>(null);
 const input = ref<HTMLInputElement | null>(null);
+const submitting = ref(false);
 
 const MAX_BYTES = 4 * 1024 * 1024;
 
@@ -40,7 +42,7 @@ function remove(name: string): void {
 
 const totalBytes = computed(() => files.value.reduce((sum, f) => sum + f.size, 0));
 const tooBig = computed(() => totalBytes.value > MAX_BYTES);
-const canSubmit = computed(() => files.value.length === 2 && !tooBig.value && !store.uploading);
+const canSubmit = computed(() => files.value.length === 2 && !tooBig.value && !store.busy);
 
 const HINTS: Record<string, string> = {
   missing_columns: 'Both exports need the columns from the brief. Column order does not matter.',
@@ -51,14 +53,32 @@ const HINTS: Record<string, string> = {
   invalid_as_of: 'Use the date picker, or leave it empty to use the latest timestamp in the files.',
 };
 
+function successMessage(result: UploadResult): string {
+  const { entry } = result;
+  const counts = `${fmtInt(entry.orders)} orders and ${fmtInt(entry.kits)} kits`;
+  if (result.outcome === 'duplicate') {
+    return `These files are already saved as "${entry.name}", so that one is open now.`;
+  }
+  if (result.outcome === 'not_saved') {
+    const why =
+      result.reason === 'full'
+        ? 'Browser storage is full, so it is only kept until you refresh. Remove an older dataset to make room.'
+        : 'This browser does not allow saving, so it is only kept until you refresh.';
+    return `Loaded ${counts} as "${entry.name}". ${why}`;
+  }
+  return `Saved ${counts} as "${entry.name}" and opened it. Every page now shows this data.`;
+}
+
 async function submit(): Promise<void> {
   if (!canSubmit.value) return;
   error.value = null;
   success.value = null;
+  submitting.value = true;
   try {
-    const ds = await store.upload(files.value, asOf.value || undefined);
-    success.value = `Loaded ${fmtInt(ds.meta.counts.orders)} orders and ${fmtInt(ds.meta.counts.kits)} kits. Every page now shows the uploaded data.`;
+    const result = await store.upload(files.value, asOf.value || undefined);
+    success.value = successMessage(result);
     files.value = [];
+    asOf.value = '';
     if (input.value) input.value.value = '';
   } catch (err) {
     if (err instanceof ApiError) {
@@ -68,14 +88,9 @@ async function submit(): Promise<void> {
         message: 'The upload did not reach the server. Check your connection and try again.',
       };
     }
+  } finally {
+    submitting.value = false;
   }
-}
-
-async function resetToSample(): Promise<void> {
-  error.value = null;
-  success.value = null;
-  await store.loadSample();
-  success.value = 'Back on the sample export.';
 }
 
 const fmtSize = (bytes: number) =>
@@ -84,10 +99,10 @@ const fmtSize = (bytes: number) =>
 
 <template>
   <section class="panel p-4 sm:p-5" aria-labelledby="upload-title">
-    <h2 id="upload-title" class="panel-title">Load another export</h2>
+    <h2 id="upload-title" class="panel-title">Add a dataset</h2>
     <p class="panel-note mt-0.5">
       Drop the orders CSV and the kit events CSV, in any order. Each file is recognized by its
-      header, and nothing is stored on the server.
+      header. The result is saved in this browser only; nothing is stored on the server.
     </p>
 
     <form class="mt-4 flex flex-col gap-4" @submit.prevent="submit">
@@ -148,7 +163,7 @@ const fmtSize = (bytes: number) =>
         <input v-model="asOf" type="date" class="field" />
         <span class="text-xs text-muted">
           When the export was taken (00:00 UTC). Left empty, the latest timestamp in the files is
-          used.
+          used. You can change it later.
         </span>
       </label>
 
@@ -168,28 +183,19 @@ const fmtSize = (bytes: number) =>
         data-testid="upload-success"
       >
         {{ success }}
-        <RouterLink
-          v-if="!store.isSample"
-          to="/"
-          class="ml-1 font-medium underline underline-offset-2"
-        >
+        <RouterLink to="/" class="ml-1 font-medium underline underline-offset-2">
           Open the overview
         </RouterLink>
       </p>
 
       <div class="flex flex-wrap gap-2">
         <button type="submit" class="btn btn-primary" :disabled="!canSubmit">
-          {{ store.uploading ? 'Analyzing…' : 'Analyze files' }}
+          <LoaderCircle v-if="submitting" class="size-4 animate-spin" aria-hidden="true" />
+          {{ submitting ? 'Analyzing…' : 'Analyze and save' }}
         </button>
-        <button
-          v-if="!store.isSample"
-          type="button"
-          class="btn"
-          :disabled="store.uploading || store.status === 'loading'"
-          @click="resetToSample"
-        >
-          Reset to sample
-        </button>
+        <p v-if="submitting" class="self-center text-sm text-muted" role="status">
+          Uploading {{ fmtSize(totalBytes) }} and checking every row. This takes a few seconds.
+        </p>
       </div>
     </form>
   </section>

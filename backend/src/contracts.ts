@@ -112,8 +112,21 @@ export interface QualityIssue {
   examples: string[];
 }
 
+/**
+ * Version of the analysis rules. Bump it whenever a change to the engine would change the
+ * numbers, so browsers re-analyze the uploads they saved with older rules.
+ */
+export const ENGINE_VERSION = '2';
+
+export interface HealthResponse {
+  status: 'ok';
+  engineVersion: string;
+}
+
 export interface DatasetMeta {
   source: 'sample' | 'upload';
+  /** ENGINE_VERSION of the rules that produced this dataset. */
+  engineVersion: string;
   label: string;
   asOf: number;
   asOfSource: 'export_date' | 'latest_timestamp' | 'override';

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import type { Owner, StuckInfo } from '@contracts';
-import { Download } from 'lucide-vue-next';
-import { computed } from 'vue';
+import { Download, LoaderCircle } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import StateBlock from '@/components/StateBlock.vue';
 import StuckTable from '@/components/StuckTable.vue';
 import { useFilteredData } from '@/composables/useFilteredData';
 import { downloadText, toCsv } from '@/lib/csv';
+import { nextFrame, track } from '@/lib/loading';
 import { fmtDate, fmtInt, isoDate } from '@/lib/format';
 import { countByOwner, OWNERS, sortStuck, stuckRows, stuckStageLabel } from '@/lib/metrics';
 import { useDatasetStore } from '@/stores/dataset';
@@ -61,7 +62,23 @@ const stageOptions = computed(() => {
     .map((k) => ({ value: k, label: ds.value ? stuckStageLabel(ds.value, k) : k }));
 });
 
-function exportCsv(): void {
+const exporting = ref(false);
+
+async function exportCsv(): Promise<void> {
+  if (!ds.value || exporting.value) return;
+  exporting.value = true;
+  try {
+    // Let the button and the progress bar paint before the file is built.
+    await track(async () => {
+      await nextFrame();
+      buildAndDownload();
+    });
+  } finally {
+    exporting.value = false;
+  }
+}
+
+function buildAndDownload(): void {
   if (!ds.value) return;
   const header = [
     'order_id',
@@ -111,9 +128,16 @@ function exportCsv(): void {
           refunded and test orders are never listed.
         </p>
       </div>
-      <button type="button" class="btn" :disabled="rows.length === 0" @click="exportCsv">
-        <Download class="size-4" aria-hidden="true" />
-        Export CSV ({{ fmtInt(rows.length) }})
+      <button
+        type="button"
+        class="btn"
+        :disabled="rows.length === 0 || exporting"
+        data-testid="export-csv"
+        @click="exportCsv"
+      >
+        <LoaderCircle v-if="exporting" class="size-4 animate-spin" aria-hidden="true" />
+        <Download v-else class="size-4" aria-hidden="true" />
+        {{ exporting ? 'Preparing…' : `Export CSV (${fmtInt(rows.length)})` }}
       </button>
     </div>
 

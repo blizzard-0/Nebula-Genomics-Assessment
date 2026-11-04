@@ -2,6 +2,7 @@
 import type { QualityIssue } from '@contracts';
 import { computed } from 'vue';
 import Badge from '@/components/Badge.vue';
+import DatasetList from '@/components/DatasetList.vue';
 import type { BadgeTone } from '@/components/Badge.vue';
 import StateBlock from '@/components/StateBlock.vue';
 import UploadPanel from '@/components/UploadPanel.vue';
@@ -14,7 +15,7 @@ const ds = computed(() => store.dataset);
 const AS_OF_SOURCE = {
   export_date: 'export date given in the brief',
   latest_timestamp: 'latest timestamp in the files',
-  override: 'set at upload',
+  override: 'set by you',
 } as const;
 
 const LEVEL: Record<QualityIssue['level'], { label: string; tone: BadgeTone }> = {
@@ -56,9 +57,12 @@ const RULES = [
     <div>
       <h1 class="text-xl font-semibold">Data</h1>
       <p class="max-w-3xl text-sm text-muted">
-        What is loaded, how the raw export was cleaned, and the rules behind every number.
+        Switch between datasets or add your own, see how the open export was cleaned, and the rules
+        behind every number.
       </p>
     </div>
+
+    <DatasetList />
 
     <div class="grid gap-5 lg:grid-cols-5">
       <section
@@ -66,8 +70,8 @@ const RULES = [
         class="panel min-w-0 p-4 sm:p-5 lg:col-span-2"
         aria-labelledby="current-title"
       >
-        <h2 id="current-title" class="panel-title">Current dataset</h2>
-        <p class="mt-0.5 text-sm">{{ ds.meta.label }}</p>
+        <h2 id="current-title" class="panel-title">Showing now</h2>
+        <p class="mt-0.5 text-sm">{{ store.activeEntry?.name ?? ds.meta.label }}</p>
         <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
           <div class="col-span-2">
             <dt class="text-xs text-muted">As of</dt>
@@ -106,7 +110,7 @@ const RULES = [
       <StateBlock
         v-else-if="store.status === 'loading'"
         kind="loading"
-        title="Loading the sample export"
+        title="Loading the data"
         class="panel lg:col-span-2"
       />
       <StateBlock
@@ -124,7 +128,7 @@ const RULES = [
       <div class="px-4 pt-4 pb-3 sm:px-5">
         <h2 id="quality-title" class="panel-title">Data quality report</h2>
         <p class="panel-note">
-          Every problem found in this export, how often, and what was done about it.
+          Every problem found in the open dataset, how often, and what was done about it.
         </p>
       </div>
       <ul class="divide-y divide-line border-t border-line" data-testid="quality-list">
